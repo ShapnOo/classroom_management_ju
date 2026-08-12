@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+model User {
+  id                    String                 @id @default(uuid())
+  employeeId            String?                @unique // For Admin/Teacher
+  studentId             String?                @unique // For Student
+  name                  String
+  email                 String                 @unique
+  password              String
+  role                  Role
+  department            String?
+  designation           String?
+  batchId               String? // For Student
+  semester              String? // For Student
+  profilePicture        String?
+  status                String                 @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  
+  // Relations
+  taughtClassrooms      Classroom[]            @relation("TeacherClassrooms")
+  enrolledBatches       Batch[]                @relation("BatchStudents")
+  assignmentsSubmitted  AssignmentSubmission[]
+  testResults           TestResult[]
+  attendanceRecords     Attendance[]
+  Batch                 Batch?                 @relation(fields: [batchId], references: [id])
+}
+
+model Batch {
+  id         String      @id @default(uuid())
+  code       String      @unique
+  program    String
+  startDate  DateTime
+  endDate    DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  students   User[]      @relation("BatchStudents")
+  classrooms Classroom[]
+  User       User[]
+}
+
+model Course {
+  id         String      @id @default(uuid())
+  code       String      @unique
+  name       String
+  credit     Float
+  department String
+  semester   String
+  syllabus   String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  classrooms Classroom[]
+}
+
+model Classroom {
+  id           String         @id @default(uuid())
+  name         String
+  courseId     String
+  batchId      String
+  teacherId    String
+  section      String?
+  semester     String
+  academicYear String
+  startDate    DateTime
+  endDate      DateTime?
+  status       String         @default("ACTIVE")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  course       Course         @relation(fields: [courseId], references: [id])
+  batch        Batch          @relation(fields: [batchId], references: [id])
+  teacher      User           @relation("TeacherClassrooms", fields: [teacherId], references: [id])
+  sessions     ClassSession[]
+  materials    Material[]
+  assignments  Assignment[]
+  classTests   ClassTest[]
+}
+
+model ClassSession {
+  id             String       @id @default(uuid())
+  classroomId    String
+  date           DateTime
+  startTime      DateTime
+  endTime        DateTime
+  topic          String
+  description    String?
+  topicsCovered  String?
+  completionPct  Int          @default(0)
+  teacherNotes   String?
+  remainingTopics String?
+  status         String       @default("COMPLETED") // COMPLETED, PARTIAL
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  classroom      Classroom    @relation(fields: [classroomId], references: [id])
+  attendance     Attendance[]
+}
+
+model Attendance {
+  id             String       @id @default(uuid())
+  sessionId      String
+  studentId      String
+  status         String // PRESENT, ABSENT, LATE
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  session        ClassSession @relation(fields: [sessionId], references: [id])
+  student        User         @relation(fields: [studentId], references: [id])
+
+  @@unique([sessionId, studentId])
+}
+
+model Material {
+  id          String    @id @default(uuid())
+  classroomId String
+  title       String
+  fileUrl     String
+  fileType    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  classroom   Classroom @relation(fields: [classroomId], references: [id])
+}
+
+model Assignment {
+  id            String                 @id @default(uuid())
+  classroomId   String
+  title         String
+  description   String?
+  instructions  String?
+  attachmentUrl String?
+  maxMarks      Int
+  publishDate   DateTime               @default(now())
+  dueDate       DateTime
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  classroom     Classroom              @relation(fields: [classroomId], references: [id])
+  submissions   AssignmentSubmission[]
+}
+
+model AssignmentSubmission {
+  id           String     @id @default(uuid())
+  assignmentId String
+  studentId    String
+  fileUrl      String
+  marks        Int?
+  feedback     String?
+  status       String     @default("SUBMITTED") // PENDING, SUBMITTED, GRADED
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+  student      User       @relation(fields: [studentId], references: [id])
+
+  @@unique([assignmentId, studentId])
+}
+
+model ClassTest {
+  id          String       @id @default(uuid())
+  classroomId String
+  title       String
+  topic       String?
+  date        DateTime
+  maxMarks    Int
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  classroom   Classroom    @relation(fields: [classroomId], references: [id])
+  results     TestResult[]
+}
+
+model TestResult {
+  id          String    @id @default(uuid())
+  testId      String
+  studentId   String
+  marks       Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  test        ClassTest @relation(fields: [testId], references: [id])
+  student     User      @relation(fields: [studentId], references: [id])
+
+  @@unique([testId, studentId])
+}
